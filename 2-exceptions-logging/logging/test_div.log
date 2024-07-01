@@ -1,0 +1,11 @@
+test_div 2024-06-28 14:06:02,144 INFO Testing the custom logger for module test_div...
+test_div 2024-06-28 14:06:02,145 INFO x/y successful with result: 0.4.
+test_div 2024-06-28 14:06:02,145 INFO x/y successful with result: 0.42857142857142855.
+test_div 2024-06-28 14:06:02,145 INFO x/y successful with result: 0.5.
+test_div 2024-06-28 14:06:02,145 ERROR ZeroDivisionError
+Traceback (most recent call last):
+  File "/home/malfoy/git/itm/2-exceptions-logging/logging/test_div.py", line 19, in test_division
+    x/y
+    ~^~
+ZeroDivisionError: division by zero
+test_div 2024-06-28 14:06:02,152 INFO x/y successful with result: 10.0.
