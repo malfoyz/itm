@@ -1,0 +1,10 @@
+logging_tasks.homework.quadratic_equation 2024-08-08 19:59:37,133 INFO Тестирование пользовательского логгера для модуля logging_tasks.homework.quadratic_equation
+logging_tasks.homework.quadratic_equation 2024-08-08 19:59:37,172 INFO a = 2, b = 2, c = 0
+logging_tasks.homework.quadratic_equation 2024-08-08 19:59:37,172 INFO D = 4
+logging_tasks.homework.quadratic_equation 2024-08-08 19:59:37,172 INFO Так как D > 0, то x = (0.0, -1.0)
+logging_tasks.homework.quadratic_equation 2024-08-08 19:59:37,174 INFO a = -2, b = 0, c = 2
+logging_tasks.homework.quadratic_equation 2024-08-08 19:59:37,174 INFO D = 16
+logging_tasks.homework.quadratic_equation 2024-08-08 19:59:37,174 INFO Так как D > 0, то x = (-1.0, 1.0)
+logging_tasks.homework.quadratic_equation 2024-08-08 19:59:37,176 INFO a = 4, b = 3, c = 5
+logging_tasks.homework.quadratic_equation 2024-08-08 19:59:37,176 INFO D = -71
+logging_tasks.homework.quadratic_equation 2024-08-08 19:59:37,176 ERROR D < 0, действительных корней нет.
