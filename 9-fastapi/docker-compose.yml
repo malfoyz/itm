@@ -1,0 +1,53 @@
+version: '3'
+services:
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    env_file:
+      - .env
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: rabbitmq_app
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    env_file:
+      - .env
+
+  app:
+    build:
+      context: .
+    container_name: app
+    env_file:
+      - .env
+    command: ['/app/docker/app.sh']
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
+      - rabbitmq
+
+  celery:
+    build:
+      context: .
+    container_name: celery_app
+    env_file:
+      - .env
+    command: ["/app/docker/celery.sh", "celery"]
+    depends_on:
+      - db
+      - rabbitmq
+
+  flower:
+    build:
+      context: .
+    env_file:
+      - .env
+    container_name: flower_app
+    command: [ "/app/docker/celery.sh", "flower" ]
+    depends_on:
+      - rabbitmq
+      - celery
+    ports:
+      - 5555:5555
