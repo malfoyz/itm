@@ -24,6 +24,8 @@ services:
     command: ['/app/docker/app.sh']
     ports:
       - 8000:8000
+    volumes:
+      - ./:/app  # Маунтим папку с кодом
     depends_on:
       - db
       - rabbitmq
@@ -35,6 +37,8 @@ services:
     env_file:
       - .env
     command: ["/app/docker/celery.sh", "celery"]
+    volumes:
+      - ./:/app
     depends_on:
       - db
       - rabbitmq
@@ -46,6 +50,8 @@ services:
       - .env
     container_name: flower_app
     command: [ "/app/docker/celery.sh", "flower" ]
+    volumes:
+      - ./:/app
     depends_on:
       - rabbitmq
       - celery

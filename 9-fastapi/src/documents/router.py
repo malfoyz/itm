@@ -13,7 +13,6 @@ from src.documents.repositories import DocumentRepository
 from src.documents.services import DocumentFileManager
 from src.documents.tasks import analyse_image_task
 
-
 router = APIRouter(
     prefix='/documents',
     tags=['Documents'],
@@ -146,8 +145,9 @@ async def analyse_image(
     """
     try:
         filename = await repo.get_filename_by_id(id)
-        path = file_manager.MEDIA_PATH / filename
+        path = str(file_manager.MEDIA_PATH / filename)
         task = analyse_image_task.delay(id, path)
+        task = task.get(timeout=1000)
 
         return JSONResponse(
             status_code=status.HTTP_202_ACCEPTED,
@@ -155,12 +155,12 @@ async def analyse_image(
                 'status': 'accepted',
                 'data': {
                     'task_id': task.id,
+                    'text': task,
                 },
                 'details': 'Task has been accepted and is being processed.',
             }
         )
-    except Exception as e:
-        print(e)
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
