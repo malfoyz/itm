@@ -8,7 +8,7 @@ from src.documents.dependencies import (
     get_document_repository,
     validate_image,
 )
-from src.documents.exceptions import DocumentNotFoundException
+from src.documents.exceptions import DocumentNotFoundException, DocumentTextNotFoundException
 from src.documents.repositories import DocumentRepository
 from src.documents.services import DocumentFileManager
 from src.documents.tasks import analyse_image_task
@@ -19,7 +19,7 @@ router = APIRouter(
 )
 
 
-@router.post('/images')
+@router.post('/images', status_code=status.HTTP_201_CREATED, summary="Загрузить изображение")
 async def upload_image(
         file: UploadFile = Depends(validate_image),
         file_manager: DocumentFileManager = Depends(get_document_file_manager),
@@ -29,34 +29,15 @@ async def upload_image(
     Загружает изображение, сохраняет на диск в папку documents,
     и добавляет в базу запись в таблицу Documents.
 
-    :param file: Изображение для загрузки (проверяется через validate_image).
-    :type file: UploadFile
+    - **file**: изображение для загрузки
 
-    :param file_manager: Файловый менеджер для работы с файлами документов.
-    :param file_manager: DocumentFileManager
-
-    :param repo: Репозиторий для работы с документами в базе данных.
-    :type repo: DocumentRepository
-
-    :return: JSON-ответ с результатами загрузки и добавления в базу данных.
-    :rtype: Response
-
-    :raises HTTPException: при ошибках загрузки или записи в базу данных
+    Возвращает ответ с информацией о загруженном изображении.
     """
 
     try:
         path = file_manager.save_file(file)
         document = await repo.add_one(path)
 
-        # return Response(                # решил сделать со схемой так вместо словаря, так как структура однотипная
-        #     status='success',
-        #     data={
-        #         'filename': file.filename,
-        #         'filepath': path,
-        #         'document_id': document.id,
-        #     },
-        #     details=None,
-        # )
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content={
@@ -80,29 +61,18 @@ async def upload_image(
         )
 
 
-@router.delete('/images/{id}')
+@router.delete('/images/{id}', status_code=status.HTTP_204_NO_CONTENT, summary='Удалить изображение')
 async def delete_image(
         id: int,
         file_manager: DocumentFileManager = Depends(get_document_file_manager),
         repo: DocumentRepository = Depends(get_document_repository),
 ):
     """
-    Принимает id документа и удаляет его в базе данных и на диске.
+    Удаляет документ в базе данных и на диске с помощью его идентификатора.
 
-    :param id: Идентификатор документа в таблице `Documents`.
-    :type id: int
+    - **id**: идентификатор документа
 
-    :param file_manager: Файловый менеджер для работы с файлами документов.
-    :param file_manager: DocumentFileManager
-
-    :param repo: Репозиторий для работы с документами в базе данных.
-    :type repo: DocumentRepository
-
-    :return: JSON-ответ с результатами загрузки и добавления в базу данных.
-    :rtype: Response
-
-    :raises DocumentNotFoundException: если такого изображения нет
-    :raises HTTPException: при ошибках загрузки или записи в базу данных
+    Возвращает ответ с информацией о загруженном изображении.
     """
     try:
         filename = await repo.get_filename_by_id(id)
@@ -130,24 +100,28 @@ async def delete_image(
         )
 
 
-@router.post('/images/analyse/{id}')
+@router.post('/images/analyse/{id}', status_code=status.HTTP_202_ACCEPTED, summary='Обработать изображение')
 async def analyse_image(
         id: int,
         file_manager: DocumentFileManager = Depends(get_document_file_manager),
         repo: DocumentRepository = Depends(get_document_repository),
 ) -> JSONResponse:
     """
-    Апи должна принимать id документа
-    и вызывать функцию очереди задач celery для выполнения в фоновом режиме.
-    В методе celery необходимо вызвать библиотеку tesseract
-    для получения текста и записать результат в Documents_text.
-    Вам здесь понадобиться брокер сообщений, например RabbitMQ.
+    Анализирует текст в изображении в фоновом режиме,
+    затем сохраняет этот текст в базу данных.
+
+    - **id**: идентификатор изображения (документа)
+
+    Возвращает идентификатор задачи и статус выполнения.
     """
     try:
         filename = await repo.get_filename_by_id(id)
         path = str(file_manager.MEDIA_PATH / filename)
-        task = analyse_image_task.delay(id, path)
-        task = task.get(timeout=1000)
+
+        task = analyse_image_task.delay(path)
+        text = task.get(timeout=10)
+
+        await repo.add_text_to_document(id, text)
 
         return JSONResponse(
             status_code=status.HTTP_202_ACCEPTED,
@@ -155,9 +129,17 @@ async def analyse_image(
                 'status': 'accepted',
                 'data': {
                     'task_id': task.id,
-                    'text': task,
                 },
                 'details': 'Task has been accepted and is being processed.',
+            }
+        )
+    except DocumentNotFoundException:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                'status': 'error',
+                'data': None,
+                'details': None,
             }
         )
     except Exception:
@@ -171,12 +153,16 @@ async def analyse_image(
         )
 
 
-@router.get('/get_text/{document_id}')
+@router.get('/texts/{document_id}', summary='Получить текст изображения')
 async def get_text(
         document_id: int,
         repo: DocumentRepository = Depends(get_document_repository),
 ):
-    """Апи должна принимать id документа и возвращать текст из БД."""
+    """
+    Возвращает текст из базы данных по идентификатору изображения (документа).
+
+    - **document_id**: идентификатор документа, которому приндлежит текст
+    """
     try:
         text = await repo.get_document_text(document_id)
         return JSONResponse(
@@ -187,6 +173,15 @@ async def get_text(
                     'document_id': document_id,
                     'text': text,
                 },
+                'details': None,
+            }
+        )
+    except DocumentTextNotFoundException as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                'status': 'error',
+                'data': None,
                 'details': None,
             }
         )

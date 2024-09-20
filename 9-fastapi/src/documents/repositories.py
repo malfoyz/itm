@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.documents.exceptions import DocumentNotFoundException, DocumentTextNotFoundException
@@ -71,7 +72,7 @@ class DocumentRepository:
         """
         Добавляет текст в базу данных.
 
-        :param document_id: идентификатор документа, которому принадлежит текст
+        :param document_id: Идентификатор документа, которому принадлежит текст
         :type document_id: int
 
         :param text: текст, который нужно добавить
@@ -81,34 +82,31 @@ class DocumentRepository:
         :rtype: None
 
         :raises DocumentNotFoundException: если такого документа нет в базе данных
+        :raises Exception: в остальных случаях
         """
-        document = await self.session.get(Document, id)
+        document = await self.session.get(Document, document_id)
         if document is None:
             raise DocumentNotFoundException("Document not found")
-        document_text = DocumentText(text=text)
-        document_text.document = document
-        await self.session.commit()
+        try:
+            document_text = DocumentText(text=text)
+            document_text.document = document
+            self.session.add(document_text)
+            await self.session.commit()
+        except Exception as e:
+            print(e)
 
     async def get_document_text(self, document_id: int) -> str:
         """
         Возвращает текст документа по идентификатору документа.
 
-        :param document_id: идентификатор документа, которому принадлежит текст
+        :param document_id: Идентификатор документа, которому принадлежит текст
         :type document_id: int
-
-        :return: текст документа
-        :rtype: str
 
         :raises DocumentNotFoundException: если такого документа нет в базе данных
         """
-
-        document = await self.session.get(Document, id)
-        if document is None:
-            raise DocumentNotFoundException("Document not found")
-        try:
-            document_text = document.document_texts[0]
-        except Exception as e:
-            print(e)
-        else:
-            text = document_text.text
-            return text
+        query = select(DocumentText.text).filter(DocumentText.document_id == document_id).limit(1)
+        result = await self.session.execute(query)
+        document_text = result.scalars().first()
+        if document_text is None:
+            raise DocumentTextNotFoundException
+        return document_text
